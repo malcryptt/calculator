@@ -1,0 +1,716 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Your Local Maths Teacher</title>
+  <meta name="description" content="A sarcastic Nigerian-style calculator that roasts you for simple math.">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📐</text></svg>">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    :root {
+      --bg: #0c0c14;
+      --surface: rgba(255, 255, 255, 0.05);
+      --surface-hover: rgba(255, 255, 255, 0.09);
+      --border: rgba(255, 255, 255, 0.08);
+      --text: #ededf0;
+      --text-dim: rgba(255, 255, 255, 0.45);
+      --accent: #a78bfa;
+      --accent-dim: rgba(167, 139, 250, 0.15);
+      --accent-glow: rgba(167, 139, 250, 0.25);
+      --orange: #f59e0b;
+      --orange-dim: rgba(245, 158, 11, 0.12);
+      --red: #ef4444;
+      --radius: 14px;
+    }
+
+    body {
+      font-family: 'Inter', system-ui, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    /* Subtle animated background glow */
+    body::before {
+      content: '';
+      position: fixed;
+      inset: -50%;
+      width: 200%;
+      height: 200%;
+      background:
+        radial-gradient(circle at 30% 25%, rgba(167, 139, 250, 0.07), transparent 50%),
+        radial-gradient(circle at 75% 75%, rgba(245, 158, 11, 0.05), transparent 50%);
+      animation: drift 20s ease-in-out infinite alternate;
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    @keyframes drift {
+      to { transform: translate(3%, 2%) scale(1.03); }
+    }
+
+    /* ===== LAYOUT ===== */
+    .calculator {
+      position: relative;
+      z-index: 1;
+      width: 100%;
+      max-width: 400px;
+      padding: 16px;
+    }
+
+    /* ===== HEADER ===== */
+    .header {
+      text-align: center;
+      margin-bottom: 18px;
+    }
+
+    .header h1 {
+      font-size: 1.3rem;
+      font-weight: 800;
+      background: linear-gradient(135deg, var(--accent), var(--orange));
+      -webkit-background-clip: text;
+      background-clip: text;
+      -webkit-text-fill-color: transparent;
+      letter-spacing: -0.3px;
+    }
+
+    .header p {
+      font-size: 0.65rem;
+      color: var(--text-dim);
+      margin-top: 4px;
+      letter-spacing: 1.5px;
+      text-transform: uppercase;
+    }
+
+    /* ===== MODE TOGGLE ===== */
+    .mode-toggle {
+      display: flex;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 3px;
+      margin-bottom: 14px;
+    }
+
+    .mode-btn {
+      flex: 1;
+      padding: 9px;
+      border: none;
+      background: transparent;
+      color: var(--text-dim);
+      font-family: inherit;
+      font-size: 0.78rem;
+      font-weight: 600;
+      cursor: pointer;
+      border-radius: 8px;
+      transition: all 0.25s ease;
+    }
+
+    .mode-btn.active {
+      background: var(--accent-dim);
+      color: var(--text);
+      box-shadow: 0 0 16px var(--accent-glow);
+    }
+
+    /* ===== DISPLAY ===== */
+    .display {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 20px 18px;
+      margin-bottom: 10px;
+      min-height: 110px;
+      display: flex;
+      flex-direction: column;
+      justify-content: flex-end;
+    }
+
+    .expression {
+      font-size: 0.85rem;
+      color: var(--text-dim);
+      text-align: right;
+      word-break: break-all;
+      min-height: 22px;
+      margin-bottom: 6px;
+    }
+
+    .result {
+      font-size: 2.2rem;
+      font-weight: 800;
+      text-align: right;
+      word-break: break-all;
+      letter-spacing: -0.5px;
+      transition: color 0.2s;
+    }
+
+    .result.error {
+      color: var(--red);
+      font-size: 1.1rem;
+    }
+
+    /* ===== SARCASM TOAST ===== */
+    .sarcasm-wrap {
+      text-align: center;
+      min-height: 34px;
+      margin-bottom: 10px;
+    }
+
+    .sarcasm-text {
+      display: inline-block;
+      font-size: 0.75rem;
+      font-weight: 600;
+      color: var(--orange);
+      background: var(--orange-dim);
+      border: 1px solid rgba(245, 158, 11, 0.2);
+      padding: 5px 14px;
+      border-radius: 20px;
+      opacity: 0;
+      transform: translateY(6px);
+      transition: all 0.35s cubic-bezier(0.34, 1.56, 0.64, 1);
+      max-width: 100%;
+      line-height: 1.4;
+    }
+
+    .sarcasm-text.show {
+      opacity: 1;
+      transform: translateY(0);
+    }
+
+    /* ===== BUTTONS (shared) ===== */
+    .grid {
+      display: grid;
+      gap: 7px;
+    }
+
+    .grid-main {
+      grid-template-columns: repeat(4, 1fr);
+    }
+
+    .grid-sci {
+      grid-template-columns: repeat(5, 1fr);
+      margin-bottom: 7px;
+    }
+
+    button {
+      border: none;
+      font-family: inherit;
+      font-weight: 600;
+      cursor: pointer;
+      border-radius: 11px;
+      transition: background 0.15s, transform 0.1s;
+    }
+
+    button:active {
+      transform: scale(0.94);
+    }
+
+    /* Main pad buttons */
+    .btn {
+      height: 58px;
+      font-size: 1.1rem;
+      background: var(--surface);
+      color: var(--text);
+      border: 1px solid var(--border);
+    }
+
+    .btn:hover {
+      background: var(--surface-hover);
+    }
+
+    .btn-op {
+      background: var(--accent-dim);
+      color: var(--accent);
+      border-color: rgba(167, 139, 250, 0.15);
+    }
+
+    .btn-op:hover {
+      background: rgba(167, 139, 250, 0.22);
+    }
+
+    .btn-eq {
+      background: linear-gradient(135deg, var(--accent), #7c3aed);
+      color: #fff;
+      border: none;
+      box-shadow: 0 3px 14px var(--accent-glow);
+    }
+
+    .btn-eq:hover {
+      box-shadow: 0 3px 22px rgba(167, 139, 250, 0.45);
+    }
+
+    .btn-fn {
+      background: var(--orange-dim);
+      color: var(--orange);
+      border-color: rgba(245, 158, 11, 0.12);
+    }
+
+    .btn-fn:hover {
+      background: rgba(245, 158, 11, 0.2);
+    }
+
+    .btn-ac {
+      color: var(--red);
+    }
+
+    .btn-wide {
+      grid-column: span 2;
+    }
+
+    /* Scientific panel buttons */
+    .sci-btn {
+      height: 42px;
+      font-size: 0.72rem;
+      background: rgba(255, 255, 255, 0.025);
+      color: var(--text-dim);
+      border: 1px solid rgba(255, 255, 255, 0.05);
+    }
+
+    .sci-btn:hover {
+      background: var(--accent-dim);
+      color: var(--accent);
+    }
+
+    /* Scientific panel collapse */
+    .sci-panel {
+      max-height: 0;
+      overflow: hidden;
+      transition: max-height 0.35s ease;
+    }
+
+    .sci-panel.open {
+      max-height: 260px;
+    }
+
+    /* ===== RESPONSIVE ===== */
+    @media (max-width: 420px) {
+      .calculator { padding: 10px; }
+      .btn { height: 52px; font-size: 1rem; }
+      .result { font-size: 1.9rem; }
+    }
+  </style>
+</head>
+<body>
+
+<div class="calculator">
+  <!-- Header -->
+  <div class="header">
+    <h1>📐 Your Local Maths Teacher</h1>
+    <p>Don't ask me stupid questions</p>
+  </div>
+
+  <!-- Mode Toggle -->
+  <div class="mode-toggle">
+    <button class="mode-btn active" id="btnBasic" onclick="setMode('basic')">Basic</button>
+    <button class="mode-btn" id="btnSci" onclick="setMode('scientific')">Scientific</button>
+  </div>
+
+  <!-- Display -->
+  <div class="display">
+    <div class="expression" id="expression"></div>
+    <div class="result" id="result">0</div>
+  </div>
+
+  <!-- Sarcasm Toast -->
+  <div class="sarcasm-wrap">
+    <span class="sarcasm-text" id="sarcasm"></span>
+  </div>
+
+  <!-- Scientific Panel (hidden by default) -->
+  <div class="sci-panel" id="sciPanel">
+    <div class="grid grid-sci">
+      <button class="sci-btn" onclick="sciInput('sin(')">sin</button>
+      <button class="sci-btn" onclick="sciInput('cos(')">cos</button>
+      <button class="sci-btn" onclick="sciInput('tan(')">tan</button>
+      <button class="sci-btn" onclick="sciInput('log(')">log</button>
+      <button class="sci-btn" onclick="sciInput('ln(')">ln</button>
+      <button class="sci-btn" onclick="sciInput('√(')">√</button>
+      <button class="sci-btn" onclick="sciInput('^')">x^y</button>
+      <button class="sci-btn" onclick="sciInput('π')">π</button>
+      <button class="sci-btn" onclick="sciInput('e')">e</button>
+      <button class="sci-btn" onclick="sciInput('(')">(</button>
+      <button class="sci-btn" onclick="sciInput(')')">)</button>
+      <button class="sci-btn" onclick="sciInput('!')">x!</button>
+      <button class="sci-btn" onclick="sciInput('abs(')">|x|</button>
+      <button class="sci-btn" onclick="sciInput('asin(')">sin⁻¹</button>
+      <button class="sci-btn" onclick="sciInput('acos(')">cos⁻¹</button>
+    </div>
+  </div>
+
+  <!-- Main Button Pad -->
+  <div class="grid grid-main">
+    <button class="btn btn-fn btn-ac" onclick="clearAll()">AC</button>
+    <button class="btn btn-fn" onclick="backspace()">⌫</button>
+    <button class="btn btn-fn" onclick="appendOp('%')">%</button>
+    <button class="btn btn-op" onclick="appendOp('÷')">÷</button>
+
+    <button class="btn" onclick="appendNum('7')">7</button>
+    <button class="btn" onclick="appendNum('8')">8</button>
+    <button class="btn" onclick="appendNum('9')">9</button>
+    <button class="btn btn-op" onclick="appendOp('×')">×</button>
+
+    <button class="btn" onclick="appendNum('4')">4</button>
+    <button class="btn" onclick="appendNum('5')">5</button>
+    <button class="btn" onclick="appendNum('6')">6</button>
+    <button class="btn btn-op" onclick="appendOp('−')">−</button>
+
+    <button class="btn" onclick="appendNum('1')">1</button>
+    <button class="btn" onclick="appendNum('2')">2</button>
+    <button class="btn" onclick="appendNum('3')">3</button>
+    <button class="btn btn-op" onclick="appendOp('+')">+</button>
+
+    <button class="btn btn-wide" onclick="appendNum('0')">0</button>
+    <button class="btn" onclick="appendNum('.')">.</button>
+    <button class="btn btn-eq" onclick="calculate()">=</button>
+  </div>
+</div>
+
+<script>
+// ===== STATE =====
+let expression = '';
+let lastResult = '';
+let lastRemarkIdx = -1;
+
+const elExpr = document.getElementById('expression');
+const elResult = document.getElementById('result');
+const elSarcasm = document.getElementById('sarcasm');
+const elSciPanel = document.getElementById('sciPanel');
+
+// ===== REMARK BANKS =====
+
+// General simple-operation roasts (any basic calc)
+var generalRoasts = [
+  "Calculator dey cry right now. You too dey stress me 😢",
+  "omor, olodo core 😂😂",
+  "u get trust issues, wetin be this 😭",
+  "what, wtf is this 😭💀",
+  "yoo blud, you are in the wrong major 💀",
+  "shey u no sabi basic 1, 2, 3 ni? 😭",
+  "wait u re being deadass rn? 💀😭",
+  "Maybe try opening the textbook before opening the calculator app next time. 📚😭",
+  "im laughing at you rn 😂😂😂",
+  "Next time, try solving it on paper first — the calculator shouldn't be doing your thinking for you. ✍️💀",
+  "Abeg no let your parents see this calculation, we are both getting finished. 😭🙏",
+  "m not getting paid enough for ts. 😭🙏",
+];
+
+// Multiplication-only roasts
+var multiplyRoasts = [
+  "Did you fail the times table, or are you just testing me? 🎯",
+];
+
+// Addition-only roasts
+var additionRoasts = [
+  "Somewhere, an abacus is laughing at you. 🧮😂",
+];
+
+// Pity remarks for complex/scientific operations
+var pityRemarks = [
+  "Whew. Okay. I solved it, but are YOU okay? 😰",
+  "I did the math. I also said a small prayer for you. 🙏😔",
+  "Solved. Please go outside after this. Touch grass. Breathe. 🌱😮‍💨",
+  "Solved it. You didn't deserve this level of suffering today. 💔",
+  "This took real effort. I'm impressed and mildly concerned for you. 😳👏",
+  "Solved successfully. Please log off and go live a little. 🥲",
+  "That's the answer — and also, you have my full support during this trying time. 🫂",
+  "What I'm seeing here is concerning, my condolences. 🕯️😔",
+  "Here you go. Also, when did you last see the sun? ☀️😭",
+];
+
+// Normal Remarks (everyday math, done correctly)
+var normalRemarks = [
+  "There you go ✅",
+  "Boom, sorted 🎯",
+  "Easy one, here's your answer 👌",
+  "Done and dusted ✨",
+  "That's your number 🔢",
+  "Correct, no wahala 😌",
+  "Here you go, fresh from the oven 🍞😌",
+  "All good, next question 👍",
+  "Solved, moving on 🚶‍♂️",
+  "That's it, clean and simple 🧼",
+  "Answer served hot 🍽️",
+  "No drama here, just math 📐",
+  "Here's your result, smooth sailing ⛵",
+  "Locked in ✅🔒",
+  "That's a wrap 🎬",
+];
+
+// Good Input Remarks (well-formed, solid, or satisfying calculations)
+var goodRemarks = [
+  "Nice one, clean input 👏",
+  "Now THIS is how you use a calculator 🙌",
+  "Respect, that was well put together 🫡",
+  "Solid question, solid answer 💪",
+  "See ehn, this one make sense 😌✨",
+  "Okay I see you 👀✨",
+  "That's a proper calculation right there 🔥",
+  "Balanced equation, balanced energy ⚖️",
+  "Good input, good output 🔁✅",
+  "Now that's what I call teamwork 🤝",
+  "Clean maths, clean vibes 🧠✨",
+  "You came prepared today 📚🔥",
+  "That's the kind of question I respect 🙇",
+  "Sharp. Very sharp. 🔪✨",
+  "Okay scholar, I see you 🎓👏",
+];
+
+var lastGeneralIdx = -1;
+var lastPityIdx = -1;
+var lastNormalIdx = -1;
+var lastGoodIdx = -1;
+
+function pickRandom(arr, lastIdx) {
+  var idx;
+  do {
+    idx = Math.floor(Math.random() * arr.length);
+  } while (idx === lastIdx && arr.length > 1);
+  return idx;
+}
+
+function getSimpleRemark(expr) {
+  var cleaned = expr.replace(/\s/g, '');
+  
+  // Decide if this is a "stupid" (very basic) calculation to roast
+  var numbers = cleaned.match(/\d+/g) || [];
+  var isStupid = true;
+  var hasAdvanced = /[a-zA-Z√^]/.test(cleaned);
+  
+  if (hasAdvanced || cleaned.indexOf('.') !== -1) {
+    isStupid = false; // Decimals and scientific functions are not stupid
+  } else {
+    for (var i = 0; i < numbers.length; i++) {
+      if (parseInt(numbers[i], 10) >= 100) {
+        isStupid = false; // 3-digit+ numbers are valid use of a calculator
+        break;
+      }
+    }
+    var operators = cleaned.match(/[+\-×÷%]/g) || [];
+    if (operators.length > 2) {
+      isStupid = false; // Multiple operations are fine
+    }
+  }
+
+  if (isStupid) {
+    // Roast them for simple math
+    var hasMultiply = expr.indexOf('×') !== -1;
+    var hasAdd = expr.indexOf('+') !== -1;
+
+    if (hasMultiply && !hasAdd && Math.random() < 0.3) {
+      return multiplyRoasts[Math.floor(Math.random() * multiplyRoasts.length)];
+    }
+    if (hasAdd && !hasMultiply && Math.random() < 0.3) {
+      return additionRoasts[Math.floor(Math.random() * additionRoasts.length)];
+    }
+
+    lastGeneralIdx = pickRandom(generalRoasts, lastGeneralIdx);
+    return generalRoasts[lastGeneralIdx];
+  } else {
+    // It's a solid, normal calculation
+    if (Math.random() < 0.5) {
+      lastNormalIdx = pickRandom(normalRemarks, lastNormalIdx);
+      return normalRemarks[lastNormalIdx];
+    } else {
+      lastGoodIdx = pickRandom(goodRemarks, lastGoodIdx);
+      return goodRemarks[lastGoodIdx];
+    }
+  }
+}
+
+function getPityRemark() {
+  lastPityIdx = pickRandom(pityRemarks, lastPityIdx);
+  return pityRemarks[lastPityIdx];
+}
+
+// ===== MODE TOGGLE =====
+function setMode(mode) {
+  var isSci = mode === 'scientific';
+  document.getElementById('btnBasic').classList.toggle('active', !isSci);
+  document.getElementById('btnSci').classList.toggle('active', isSci);
+  elSciPanel.classList.toggle('open', isSci);
+}
+
+// ===== INPUT HANDLERS =====
+function appendNum(n) {
+  if (lastResult && !expression.match(/[+\-×÷%^(]$/)) {
+    expression = '';
+    lastResult = '';
+  }
+  expression += n;
+  updateDisplay();
+}
+
+function appendOp(op) {
+  if (lastResult) lastResult = '';
+  if (expression === '' && op !== '−') {
+    expression = elResult.textContent !== '0' ? elResult.textContent : '';
+  }
+  var last = expression.slice(-1);
+  if (['+', '−', '×', '÷'].includes(last)) {
+    expression = expression.slice(0, -1);
+  }
+  expression += op;
+  updateDisplay();
+}
+
+function sciInput(val) {
+  if (lastResult && !val.match(/[+\-×÷%^]/)) {
+    expression = '';
+    lastResult = '';
+  }
+  expression += val;
+  updateDisplay();
+}
+
+function backspace() {
+  expression = expression.slice(0, -1);
+  hideSarcasm();
+  updateDisplay();
+}
+
+function clearAll() {
+  expression = '';
+  lastResult = '';
+  elResult.textContent = '0';
+  elResult.className = 'result';
+  elExpr.textContent = '';
+  hideSarcasm();
+}
+
+function updateDisplay() {
+  elExpr.textContent = expression || '';
+  if (!lastResult) {
+    elResult.textContent = expression || '0';
+    elResult.className = 'result';
+  }
+}
+
+// ===== SARCASM DISPLAY =====
+function showSarcasm(text) {
+  elSarcasm.classList.remove('show');
+  setTimeout(function () {
+    elSarcasm.textContent = text;
+    elSarcasm.classList.add('show');
+  }, 60);
+}
+
+function hideSarcasm() {
+  elSarcasm.classList.remove('show');
+}
+
+// ===== DETECT COMPLEXITY =====
+function isComplexOperation(expr) {
+  var cleaned = expr.replace(/\s/g, '');
+  var sciFunctions = cleaned.match(/(sin|cos|tan|log|ln|√|abs|asin|acos)/g) || [];
+  var openParens = (cleaned.match(/\(/g) || []).length;
+  
+  return sciFunctions.length >= 2 || openParens >= 3 || cleaned.length > 18 || cleaned.includes('!');
+}
+
+// ===== MATH HELPERS =====
+function factorial(n) {
+  if (n < 0) return NaN;
+  if (n === 0 || n === 1) return 1;
+  if (n > 170) return Infinity;
+  var r = 1;
+  for (var i = 2; i <= n; i++) r *= i;
+  return r;
+}
+
+function parseExpression(expr) {
+  var e = expr
+    .replace(/×/g, '*')
+    .replace(/÷/g, '/')
+    .replace(/−/g, '-')
+    .replace(/π/g, '(' + Math.PI + ')')
+    .replace(/√\(/g, 'Math.sqrt(')
+    .replace(/asin\(/g, 'Math.asin(')
+    .replace(/acos\(/g, 'Math.acos(')
+    .replace(/atan\(/g, 'Math.atan(')
+    .replace(/sin\(/g, 'Math.sin(')
+    .replace(/cos\(/g, 'Math.cos(')
+    .replace(/tan\(/g, 'Math.tan(')
+    .replace(/abs\(/g, 'Math.abs(')
+    .replace(/ln\(/g, 'Math.log(')
+    .replace(/log\(/g, 'Math.log10(')
+    .replace(/(\d+(\.\d+)?)!/g, 'factorial($1)')
+    .replace(/\^/g, '**');
+
+  // Replace standalone 'e' (Euler's number) — not part of a word
+  e = e.replace(/(?<![a-zA-Z])e(?![a-zA-Z(])/g, '(' + Math.E + ')');
+
+  // Auto-close unclosed parentheses
+  var opens = (e.match(/\(/g) || []).length;
+  var closes = (e.match(/\)/g) || []).length;
+  for (var i = 0; i < opens - closes; i++) e += ')';
+
+  return e;
+}
+
+// ===== CALCULATE =====
+function calculate() {
+  if (!expression) return;
+
+  var displayExpr = expression;
+  var complex = isComplexOperation(expression);
+
+  try {
+    var parsed = parseExpression(expression);
+    var answer = Function('factorial', '"use strict"; return (' + parsed + ')')(factorial);
+
+    if (typeof answer !== 'number' || isNaN(answer)) {
+      throw new Error('Math Error');
+    }
+
+    var formatted = Number.isInteger(answer)
+      ? answer.toString()
+      : parseFloat(answer.toPrecision(12)).toString();
+
+    elExpr.textContent = displayExpr + ' =';
+    elResult.textContent = formatted;
+    elResult.className = 'result';
+    lastResult = formatted;
+    expression = formatted;
+
+    if (complex) {
+      showSarcasm(getPityRemark());
+    } else {
+      showSarcasm(getSimpleRemark(displayExpr));
+    }
+  } catch (err) {
+    elExpr.textContent = displayExpr;
+    elResult.textContent = 'Error 💀';
+    elResult.className = 'result error';
+    showSarcasm('Even the calculator confused. Check yourself 😵');
+    lastResult = '';
+    expression = '';
+  }
+}
+
+// ===== KEYBOARD SUPPORT =====
+document.addEventListener('keydown', function (e) {
+  var k = e.key;
+  if (k >= '0' && k <= '9') appendNum(k);
+  else if (k === '.') appendNum('.');
+  else if (k === '+') appendOp('+');
+  else if (k === '-') appendOp('−');
+  else if (k === '*') appendOp('×');
+  else if (k === '/') { e.preventDefault(); appendOp('÷'); }
+  else if (k === '%') appendOp('%');
+  else if (k === 'Enter' || k === '=') calculate();
+  else if (k === 'Backspace') backspace();
+  else if (k === 'Escape' || k === 'Delete') clearAll();
+});
+</script>
+
+</body>
+</html>
